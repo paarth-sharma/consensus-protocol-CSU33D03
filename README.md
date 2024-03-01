@@ -3,7 +3,7 @@
 ## It is a basic implementation of a basic consensus protocol, implemented to be capable of the following tasks:
 
 - **Discover** - discover other nodes on the network that you can potentially interact and collaborate with.
-- **Negotiate** - negoate with each of these nodes to discover their offered services, capabilies and constraints, and to advise them of your offered services, capabilies and constraints.
+- **Negotiate** - negotiate with each of these nodes to discover their offered services, capabilities and constraints, and to advise them of your offered services, capabilies and constraints.
 - **Agreement** -  shared agreement and consensus on the collaborative activity, service or task to be provided.
 - **Action** - an action that demonstrates the meaningful and effective use of the agreed consensus which you have just achieved.
 
