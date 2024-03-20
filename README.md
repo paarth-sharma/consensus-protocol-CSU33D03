@@ -35,8 +35,8 @@ Because the call returns immediately, data may not be ready. The callee is waiti
 
 - To run this project, open up one cmd instance as administrator and run the ```server.py``` file with the 
 ```python server.py <host> <port>``` command entering you host address and port number for communication.
-- Open another cmd instance as administrator and run the ```server.py``` file with the 
-```python server.py <host> <port> <no. of connections>``` command.
+- Open another cmd instance as administrator and run the ```client.py``` file with the 
+```python client.py <host> <port> <no. of connections>``` command.
 
 ### All non-privileged ports have value > 1023
 ### Use host as 127.0.0.1 i.e., standard loopback interface address (localhost) for convenience or run the command ```ipconfig``` to find you local public ip on an administrative cmd instance. 
