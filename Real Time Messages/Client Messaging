@@ -36,40 +36,28 @@ def start_connections(host, port, num_conns):
 
 def service_connection(key, mask):
     sock = key.fileobj
-    data = key.data
-    sentence = input("Input lowercase sentence:")
-    sock.send(sentence.encode()) 
+    data = key.data 
     if mask & selectors.EVENT_READ:
-            try:
-                recv_data = sock.recv(1024)
-            except BlockingIOError:
-                # No data available to read at the moment, continue with other tasks
-                return
-            except Exception as e:
-                print(f"Error receiving data from server: {e}")
-                recv_data = None
+            
 
             if recv_data:
                 print(f"Received {recv_data.decode()} from connection {data.connid}")
                 data.recv_total += len(recv_data)
 
     if mask & selectors.EVENT_WRITE:
-        if data.messages:
-            data.outb = data.messages.pop(0)
-        if data.outb:
-            print(f"Sending {data.outb.decode()} to connection {data.connid}")
-            try:
-                sent = sock.send(data.outb)
-            except BlockingIOError:
-                # Socket is not ready for writing, continue with other tasks
-                pass
-            except Exception as e:
-                print(f"Error sending data to server: {e}")
-                sent = 0
+         sentence = input("Input lowercase sentence:")
+         sock.send(sentence.encode()) 
+         try:
+                recv_data = sock.recv(1024)
+         except BlockingIOError:
+                # No data available to read at the moment, continue with other tasks
+                return
+         except Exception as e:
+                print(f"Error receiving data from server: {e}")
+                recv_data = None
+         
 
-            data.outb = data.outb[sent:]
-
-    if not data.messages and not data.outb:
+    if not sentence and not data.outb:
         # If there are no more messages to send and no outgoing data in the buffer,
         # we can unregister and close the connection.
         print(f"Closing connection {data.connid}")
