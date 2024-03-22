@@ -47,7 +47,6 @@ def service_connection(key, mask):
                 sentence = recv_data.decode()  # Use received data here
                 print("From Client: ", sentence)  
                 capitalizedSentence = sentence.upper() 
-                print(capitalizedSentence )
                 sock.send(capitalizedSentence.encode()) 
             else:
                 print(f"Closing connection to {data.addr}")
