@@ -5,6 +5,7 @@ import types
 
 sel = selectors.DefaultSelector()
 messages = [b"Message 1 from client.", b"Message 2 from client."]
+sockets = []  # List to store socket objects
 
 
 def start_connections(host, port, num_conns):
@@ -15,12 +16,12 @@ def start_connections(host, port, num_conns):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setblocking(False)
 
-        # You use .connect_ex() instead of .connect() because .connect() would immediately raise a BlockingIOError 
-        # exception. The .connect_ex() method initially returns an error indicator, errno.EINPROGRESS, 
+        # You use .connect_ex() instead of .connect() because .connect() would immediately raise a BlockingIOError
+        # exception. The .connect_ex() method initially returns an error indicator, errno.EINPROGRESS,
         # instead of raising an exception that would interfere with the connection in progress.
         # we need this connect to multiple clients at the same time
         sock.connect_ex(server_addr)
-        
+
         events = selectors.EVENT_READ | selectors.EVENT_WRITE
         data = types.SimpleNamespace(
             connid=connid,
@@ -30,20 +31,39 @@ def start_connections(host, port, num_conns):
             outb=b"",
         )
         sel.register(sock, events, data=data)
+        sockets.append(sock)  # Store socket object in the list
 
 
 def service_connection(key, mask):
     sock = key.fileobj
-    data = key.data
+    data = key.data 
     if mask & selectors.EVENT_READ:
-        recv_data = sock.recv(1024)  # Should be ready to read
-        if recv_data:
-            print(f"Received {recv_data!r} from connection {data.connid}")
-            data.recv_total += len(recv_data)
-        if not recv_data or data.recv_total == data.msg_total:
-            print(f"Closing connection {data.connid}")
-            sel.unregister(sock)
-            sock.close()
+            
+
+            if recv_data:
+                print(f"Received {recv_data.decode()} from connection {data.connid}")
+                data.recv_total += len(recv_data)
+
+    if mask & selectors.EVENT_WRITE:
+         sentence = input("Input lowercase sentence:")
+         sock.send(sentence.encode()) 
+         try:
+                recv_data = sock.recv(1024)
+         except BlockingIOError:
+                # No data available to read at the moment, continue with other tasks
+                return
+         except Exception as e:
+                print(f"Error receiving data from server: {e}")
+                recv_data = None
+         
+
+    if not sentence and not data.outb:
+        # If there are no more messages to send and no outgoing data in the buffer,
+        # we can unregister and close the connection.
+        print(f"Closing connection {data.connid}")
+        sel.unregister(sock)
+        sock.close()
+
     if mask & selectors.EVENT_WRITE:
         if not data.outb and data.messages:
             data.outb = data.messages.pop(0)
