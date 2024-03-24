@@ -40,19 +40,23 @@ def service_connection(key, mask):
     sock = key.fileobj
     data = key.data
     if mask & selectors.EVENT_READ:
-        recv_data = sock.recv(1024)  # Should be ready to read
-        if recv_data:
-            data.outb += recv_data
-
-        # If no data is received, this means that the client has closed their socket, so the server should too. 
-        # call sel.unregister() before closing, so it’s no longer monitored by .select().
-        else:
-            print(f"Closing connection to {data.addr}")
+        try:
+            recv_data = sock.recv(1024)  # Should be ready to read
+            if recv_data:
+                data.outb += recv_data
+                sentence = recv_data.decode()  # Use received data here
+                print("From Client: ", sentence)  
+                capitalizedSentence = sentence.upper() 
+                sock.send(capitalizedSentence.encode()) 
+            else:
+                print(f"Closing connection to {data.addr}")
+                sel.unregister(sock)
+                sock.close()
+        except ConnectionResetError:
+            print(f"Connection reset by peer: {data.addr}")
             sel.unregister(sock)
             sock.close()
 
-    # .send() method returns the number of bytes sent. 
-    # we can slice .outb buffer to discard the bytes sent and only keep the unsent data.        
     if mask & selectors.EVENT_WRITE:
         if data.outb:
             print(f"Echoing {data.outb!r} to {data.addr}")
@@ -61,6 +65,7 @@ def service_connection(key, mask):
 
 # 
 try:
+    
     while True:
         events = sel.select(timeout=None)
         for key, mask in events:
