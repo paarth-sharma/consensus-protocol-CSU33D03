@@ -68,7 +68,6 @@ def service_connection(key, mask):
 
                 # Check if the response is correct
                 if sentence.lower() == 'david':
-                    
                     info_message = f"Correct answer! Would you like information?"
                     print(f"Sending: {info_message}")
                     sock.send(info_message.encode())
@@ -107,6 +106,8 @@ def service_connection(key, mask):
                                     sock.send(close_message.encode())
                                     sel.unregister(sock)
                                     sock.close()
+                                    data.closed = True  # Mark the connection as closed
+
                                 elif sentence.lower() == 'no':
                                     continue_message = "Connection will remain open."
                                     print(f"Sending: {continue_message}")
@@ -132,6 +133,8 @@ def service_connection(key, mask):
                                     sock.send(info_message.encode())
                                     sel.unregister(sock)
                                     sock.close()
+                                    data.closed = True  # Mark the connection as closed
+
                                 elif sentence.lower() == 'no':
                                     info_message = "Ok! Connection will remain open."
                                     print(f"Sending: {info_message}")
@@ -140,8 +143,11 @@ def service_connection(key, mask):
                         # Handle if no response is received within the timeout period
                         print("No response from client within the timeout period.")
                         # Optionally, you can choose to close the connection or take other actions
-                        sel.unregister(sock)
-                        sock.close()
+                        if sock in sel.get_map():
+                            sel.unregister(sock)
+                            sock.close()
+                            data.closed = True  # Mark the connection as closed
+
                 else:
                     # Wrong answer feedback
                     wrong_message = ""
@@ -153,20 +159,26 @@ def service_connection(key, mask):
                         wrong_message = "Exceeded maximum attempts. Closing connection for security reasons. Enter any letter to close the program!"
                         print(f"Sending: {wrong_message}")
                         sock.send(wrong_message.encode())
-                        sel.unregister(sock)
-                        sock.close()
+                        if sock in sel.get_map():
+                            sel.unregister(sock)
+                            sock.close()
+                            data.closed = True  # Mark the connection as closed
 
                     print(f"Sending: {wrong_message}")
                     sock.send(wrong_message.encode())
                     # Increment the attempts
                 data.attempts += 1
 
-                
-
         except BlockingIOError:
             pass  # No data available to read, continue
         except Exception as e:
             print(f"Error receiving data from client: {e}")
+
+    # Check if the connection has been closed
+    if hasattr(data, 'closed') and data.closed:
+        # Remove the connection from the active connections list
+        active_connections.remove(sock)
+
 
 if len(sys.argv) != 3:
     print(f"Usage: {sys.argv[0]} <host> <port>")
