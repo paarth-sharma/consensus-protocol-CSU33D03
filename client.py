@@ -10,7 +10,7 @@ sockets = []  # List to store socket objects
 
 def start_connections(host, port, num_conns):
     server_addr = (host, port)
-    for i in range(0, num_conns):
+    for i in range(num_conns):
         connid = i + 1
         print(f"Starting connection {connid} to {server_addr}")
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -25,10 +25,9 @@ def start_connections(host, port, num_conns):
         events = selectors.EVENT_READ | selectors.EVENT_WRITE
         data = types.SimpleNamespace(
             connid=connid,
-            msg_total=sum(len(m) for m in messages),
-            recv_total=0,
-            messages=messages.copy(),
             outb=b"",
+            inb=b"",
+            prompt=False # To control whether to prompt for input
         )
         sel.register(sock, events, data=data)
         sockets.append(sock)  # Store socket object in the list
@@ -37,40 +36,37 @@ def start_connections(host, port, num_conns):
 def service_connection(key, mask):
     sock = key.fileobj
     data = key.data 
-    if mask & selectors.EVENT_READ:
-            
 
+    if mask & selectors.EVENT_READ:
+        try:
+            recv_data= sock.recv(1024)
             if recv_data:
                 print(f"Received {recv_data.decode()} from connection {data.connid}")
-                data.recv_total += len(recv_data)
-
-    if mask & selectors.EVENT_WRITE:
-         sentence = input("Input lowercase sentence:")
-         sock.send(sentence.encode()) 
-         try:
-                recv_data = sock.recv(1024)
-         except BlockingIOError:
-                # No data available to read at the moment, continue with other tasks
+                data.prompt= True
+            else:
+                print(f"Connection {data.connid} closed by the server.")
+                sel.unregister(sock)
+                sock.close()
                 return
-         except Exception as e:
-                print(f"Error receiving data from server: {e}")
-                recv_data = None
-         
-
-    if not sentence and not data.outb:
-        # If there are no more messages to send and no outgoing data in the buffer,
-        # we can unregister and close the connection.
-        print(f"Closing connection {data.connid}")
-        sel.unregister(sock)
-        sock.close()
+        except Exception as e:
+            print(f"Error receiving data from server: {e}")
 
     if mask & selectors.EVENT_WRITE:
-        if not data.outb and data.messages:
-            data.outb = data.messages.pop(0)
-        if data.outb:
-            print(f"Sending {data.outb!r} to connection {data.connid}")
-            sent = sock.send(data.outb)  # Should be ready to write
-            data.outb = data.outb[sent:]
+         if data.prompt:
+            # Prompt the user for input only if necessary
+            sentence = input("Enter reply: ")
+            if sentence:
+                data.outb = sentence.encode()
+                data.prompt = False  # Stop prompting for input
+         elif data.outb:
+            # If there's data to send, send it
+            try:
+                sock.send(data.outb)
+                data.outb = b""  # Clear the output buffer after sending
+            except Exception as e:
+                print(f"Error sending data to server: {e}")
+
+
 
 
 if len(sys.argv) != 4:
