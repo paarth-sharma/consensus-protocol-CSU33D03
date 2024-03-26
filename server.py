@@ -10,6 +10,7 @@ sel = selectors.DefaultSelector()
 # PORT = 65432  # Port to listen on (non-privileged ports are > 1023)
 
 #instead of hardcoding the host and port, we will use command line arguments in a tuple
+active_connections = []
 host, port = sys.argv[1], int(sys.argv[2])
 
 lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -28,15 +29,20 @@ def accept_wrapper(sock):
     conn, addr = sock.accept()  # Should be ready to read
     print(f"Accepted connection from {addr}")
     conn.setblocking(False)
-    data = types.SimpleNamespace(addr=addr, inb=b"", outb=b"",connid=addr)
+    data = types.SimpleNamespace(addr=addr, inb=b"", outb=b"", connid=addr)
     events = selectors.EVENT_READ | selectors.EVENT_WRITE
     sel.register(conn, events, data=data)
+    # Add the connection to the active connections list
+    active_connections.append(conn)
 
-# 'key' is the 'namedtuple' returned from .select() that contains the socket object (fileobj) and data object. 
+# 'key' is the 'namedtuple' returned from .select() that contains the socket object (fileobj) and data object.
 # 'mask' contains the events that are ready.
-# if the socket is ready for reading, then mask & selectors.EVENT_READ will evaluate to True, so sock.recv() is called. 
-# any data that’s read is appended to data.outb so that it can be sent later.
+# If the socket is ready for reading, then mask & selectors.EVENT_READ will evaluate to True, so sock.recv() is called.
+# Any data that’s read is appended to data.outb so that it can be sent later.
+connection_list = ''
+
 def service_connection(key, mask):
+    global connection_list  # Declare connection_list as global
     sock = key.fileobj
     data = key.data
 
@@ -62,22 +68,25 @@ def service_connection(key, mask):
 
                 # Check if the response is correct
                 if sentence.lower() == 'david':
-                    info_message = "Would you like information?"
+                    
+                    info_message = f"Correct answer! Would you like information?"
                     print(f"Sending: {info_message}")
                     sock.send(info_message.encode())
                     # Register the socket for read events to handle the client's response
                     sel.modify(sock, selectors.EVENT_READ, data=data)
-
                     # Set a timeout for receiving the response
                     sel.modify(sock, selectors.EVENT_READ, data=data)
                     sel.select(timeout=10)  # Adjust the timeout as needed
                     recv_data = sock.recv(1024)  # Should be ready to read
 
                     if recv_data:
+                        # Update the list of active connections
+                        connection_list = '\n'.join([str(conn.getpeername()) for conn in active_connections])
                         sentence = recv_data.decode().strip()  # Strip whitespace
                         print(f"Received: {sentence} from connection {data.connid}")
                         if sentence.lower() == 'yes':
-                            info_message = "Ok. Sending information now! Would you like to close the connection after?"
+                            info_message = f"Ok. Sending information now! Active connections:\n{connection_list}\n Would you like to close the connection after?"
+
                             print(f"Sending: {info_message}")
                             sock.send(info_message.encode())
 
