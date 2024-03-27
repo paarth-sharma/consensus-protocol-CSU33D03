@@ -39,4 +39,5 @@ Because the call returns immediately, data may not be ready. The callee is waiti
 ```python client.py <host> <port> <no. of connections>``` command.
 
 ### All non-privileged ports have value > 1023
-### Use host as 127.0.0.1 i.e., standard loopback interface address (localhost) for convenience or run the command ```ipconfig``` to find you local public ip on an administrative cmd instance. 
+### Run the command ```ipconfig``` to find you local public ip on an administrative cmd instance (Windows). 
+### Go to **Network Settings** and then find the network you are connected to, click on it's network settings and find the **public ip address** (Mac).
