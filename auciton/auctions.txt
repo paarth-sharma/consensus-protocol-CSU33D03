@@ -1,0 +1,5 @@
+Objeto Leiloado: lisbon  Preï¿½o: 120ï¿½  Comprador: liam
+Auctioned Item: shoes  Price: 12€  Buyer: Liam
+Auctioned Item: house  Price: 100000000€  Buyer: liam
+Auctioned Item: shoes  Price: 160€  Buyer: liam
+Auctioned Item: shoes  Price: 120€  Buyer: Liam 
