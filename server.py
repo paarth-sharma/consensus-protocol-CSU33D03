@@ -25,7 +25,20 @@ class ClientHandler(threading.Thread):
         
     def initial_message(self):
         #Send our opening message and the riddle
-        riddle = "\nHello, I am a server that can offer information about other clients, once a voting consensus has been reached.\nTo cast your vote you must be able to answer this riddle correctly: \nDavid’s parents have three sons: Snap, Crackle, and what’s the name of the third son?"
+        riddle = "\nHello, I am a server that can offer information about other clients, once a voting consensus has been reached.\nTo cast your vote you must be able to answer a riddle correctly. What services does your client offer?"
+        print(f"Sending: {riddle}")
+        self.client_socket.send(riddle.encode())
+        #Decode and strip the white space of the reply, then check for expected answers
+        answer = self.client_socket.recv(1024).decode().strip()
+        print(f"Received answer: {answer}")
+        #Server chooses if they want this client to join its network
+        sentence = input("Does the server want this client to enter the network? ")
+        if sentence.lower() == "yes":
+            self.riddle()
+        else: self.close_connection
+
+    def riddle(self):
+        riddle = "David’s parents have three sons: Snap, Crackle, and what’s the name of the third son?"
         print(f"Sending: {riddle}")
         self.client_socket.send(riddle.encode())
         #Decode and strip the white space of the reply, then check for expected answers
@@ -35,7 +48,6 @@ class ClientHandler(threading.Thread):
             self.correct_answer()
         else: 
             self.incorrect_answer()
-
     def correct_answer(self):
         #if client answers correctly, it can cast its vote
         info_message = f"Correct answer! Would you to cast your vote?"
@@ -75,11 +87,23 @@ class ClientHandler(threading.Thread):
         #vote_list_str = ', '.join(self.voting_list)
         #info_message = f"Ok All votes: {vote_list_str}\n Enter yes to see consensus results!"
         
-        #This will count the votes for us and decide which has highest amount
+        #This will count type ofvotes for us and decide which has highest amount
         vote_counts = Counter(self.voting_list)
+        total_votes= sum(vote_counts.values())
+        #Have to find a way to see how many votes have been cast
+        print(total_votes)
         max_count = max(vote_counts.values())
         consensus_options = [option for option, count in vote_counts.items() if count == max_count]
-        
+        if total_votes <2:
+            consensus_message = f"Not enough votes have been cast to reach a consensus. Enter yes to retry or no to exit the program"
+            print(f"Sending: {consensus_message}")
+            self.client_socket.send(consensus_message.encode())
+            sentence = self.client_socket.recv(1024).decode().strip()
+            print(f"Received sentence: {sentence}")
+            if sentence.lower() == 'yes':
+                self.find_consensus()
+            else: self.close_connection()
+
         # If there's a tie, you have to recast your vote
         if len(consensus_options) > 1:
             consensus_message = f"Consensus not reached.\n Press yes to recast votes!"
@@ -131,7 +155,7 @@ class ClientHandler(threading.Thread):
             
             #If the answer is entered corectly on the 2nd/3rd try
             request = self.client_socket.recv(1024).decode().strip()
-            print(f"Received sentence: {sentence}")
+            print(f"Received sentence: {request}")
             if request.lower() == "david":
                 self.correct_answer()
                 return  # Exit the method if the answer is correct
