@@ -6,7 +6,7 @@ from collections import Counter
 
 # Have to use a class to perform threading
 class ClientHandler(threading.Thread):
-    def __init__(self, client_socket, address, active_connections, voting_list):
+    def __init__(self, client_socket, address, active_connections,voting_list, client_service):
         #Handler initalising itself
         super().__init__()
         self.client_socket = client_socket
@@ -14,7 +14,9 @@ class ClientHandler(threading.Thread):
         self.active_connections = active_connections
         self.max_attempts = 3
         self.voting_list=voting_list
-
+        self.client_service= client_service
+        self.service= None
+        self.vote= None
 
     def run(self):
         try:
@@ -34,8 +36,12 @@ class ClientHandler(threading.Thread):
         #Server chooses if they want this client to join its network
         sentence = input("Does the server want this client to enter the network? ")
         if sentence.lower() == "yes":
+            with global_lock:
+                #Add this to the list so that we can send to clients
+                self.client_service.append(answer)
+                self.service= answer
             self.riddle()
-        else: self.close_connection
+        else: self.reject()
 
     def riddle(self):
         riddle = "David’s parents have three sons: Snap, Crackle, and what’s the name of the third son?"
@@ -48,6 +54,7 @@ class ClientHandler(threading.Thread):
             self.correct_answer()
         else: 
             self.incorrect_answer()
+   
     def correct_answer(self):
         #if client answers correctly, it can cast its vote
         info_message = f"Correct answer! Would you to cast your vote?"
@@ -69,6 +76,7 @@ class ClientHandler(threading.Thread):
         with global_lock:
             #Add the vote to the list that can be accessed by all threads
              self.voting_list.append(vote)
+             self.vote=vote
         self.find_consensus()
 
     def no_message(self):
@@ -80,7 +88,7 @@ class ClientHandler(threading.Thread):
         print(f"Received: {sentence}")
         if sentence.lower() == 'yes':
             self.yes_message()
-        else: self.close_connection
+        else: self.close_connection()
         
     
     def find_consensus(self):
@@ -90,8 +98,6 @@ class ClientHandler(threading.Thread):
         #This will count type ofvotes for us and decide which has highest amount
         vote_counts = Counter(self.voting_list)
         total_votes= sum(vote_counts.values())
-        #Have to find a way to see how many votes have been cast
-        print(total_votes)
         max_count = max(vote_counts.values())
         consensus_options = [option for option, count in vote_counts.items() if count == max_count]
         if total_votes <2:
@@ -128,8 +134,8 @@ class ClientHandler(threading.Thread):
             else: self.close_connection()
             
     def information(self): 
-        #This sends the list of clients that the server is connected tp
-        info_message = f"Ok. Sending information now!\n Active connections:{self.active_connections}\nThank you for partaking! Enter any input to close connection!"
+        #This sends the list of clients that the server is connected to
+        info_message = f"Ok. Sending information now!\nActive connections:{self.active_connections}.\nServices offered:{self.client_service}.\nVotes:{self.voting_list}\nThank you for partaking! Enter any input to close connection!"
         print(f"Sending: {info_message}")
         self.client_socket.send(info_message.encode())
         sentence = self.client_socket.recv(1024).decode().strip()
@@ -137,8 +143,22 @@ class ClientHandler(threading.Thread):
         self.close_connection()
 
     def close_connection(self):
-        #Closes the connections, all paths lead here 
+        #Closes the connections, nealry all paths lead here 
         close_message = "Connection closed. Enter any letter to kill the program! Goodbye!"
+        print(f"Sending: {close_message}")
+        self.client_socket.send(close_message.encode())
+        with global_lock:
+            self.active_connections.remove(self.address)
+            if self.service in self.client_service:
+                self.client_service.remove(self.service)
+            if self.vote in self.voting_list:
+                self.voting_list.remove(self.vote)
+        self.client_socket.close()
+        return
+        
+    def reject(self):
+        #Handles server rejecting the client- essentially the same as close connectionsb but with a diff message and  not removing additional items
+        close_message = "The server has rejected your connection. Goodbye!\nEnter any letter to kill the program."
         print(f"Sending: {close_message}")
         self.client_socket.send(close_message.encode())
         with global_lock:
@@ -163,6 +183,9 @@ class ClientHandler(threading.Thread):
         wrong_message = "Exceeded maximum attempts. Closing connection for security reasons. Enter any letter to close the program!"
         print(f"Sending: {wrong_message}")
         self.client_socket.send(wrong_message.encode())
+        with global_lock:
+            self.active_connections.remove(self.address)
+            self.client_service.remove(self.service)  # corrected line
         self.client_socket.close()
 
 def main():
@@ -171,8 +194,11 @@ def main():
     global_lock = threading.Lock()
     global global_active_connections
     global_active_connections = []
-    global global_voting
+    global global_voting_list
     global_voting_list= []
+    global global_client_service
+    global_client_service= []
+
     if len(sys.argv) != 3:
         print(f"Usage: {sys.argv[0]} <host> <port>")
         sys.exit(1)
@@ -192,7 +218,7 @@ def main():
             global_active_connections.append(addr)
         
         #Call the client handler class that will perform all the riddle logic
-        client_handler = ClientHandler(client_socket, addr, global_active_connections, global_voting_list)
+        client_handler = ClientHandler(client_socket, addr, global_active_connections, global_voting_list, global_client_service)
         client_handler.start()
         
         
