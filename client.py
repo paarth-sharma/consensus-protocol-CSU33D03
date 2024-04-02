@@ -9,10 +9,14 @@ def start_connections(host, port):
     server_addr = (host, port)
     print(f"Starting connection to {server_addr}")
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    #host= socket.gethostname()
+    #host_ip= socket.gethostbyname(host)
+    #server_addr = (host_ip, port)
     sock.setblocking(False)
     try:
         # Attempt to connect to the server
         sock.connect(server_addr)
+        print(f"Starting connection to {host_ip} at port {port}")
     except BlockingIOError:
         pass  # Connection is in progress, move forward
         
