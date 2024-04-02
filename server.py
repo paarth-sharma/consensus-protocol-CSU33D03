@@ -165,7 +165,7 @@ class ClientHandler(threading.Thread):
 
     def close_connection(self):
         #Closes the connections, nealry all paths lead here 
-        close_message = "Connection closed. Enter any letter to kill the program! Goodbye!"
+        close_message = "Connection closed. Goodbye!"
         print(f"Sending: {close_message}")
         self.client_socket.send(close_message.encode())
         # Remove all parameters from respective lists
@@ -180,7 +180,7 @@ class ClientHandler(threading.Thread):
         
     def reject(self):
         #Handles server rejecting the client- essentially the same as close connectionsb but with a diff message and  not removing additional items
-        close_message = "The server has rejected your connection. Goodbye!\nEnter any letter to kill the program."
+        close_message = "The server has rejected your connection. Goodbye!"
         print(f"Sending: {close_message}")
         self.client_socket.send(close_message.encode())
         with global_lock:
@@ -203,7 +203,7 @@ class ClientHandler(threading.Thread):
                 self.correct_answer()
                 return  # Exit the method if the answer is correct
                 
-        wrong_message = "Exceeded maximum attempts. Closing connection for security reasons. Enter any letter to close the program!"
+        wrong_message = "Exceeded maximum attempts. Closing connection for security reasons."
         print(f"Sending: {wrong_message}")
         self.client_socket.send(wrong_message.encode())
         with global_lock:
