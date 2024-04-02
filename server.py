@@ -2,6 +2,18 @@ import threading
 import socket
 import sys
 from collections import Counter
+import time
+
+
+clients = []
+names = []
+item_name = ''
+item_price = ''
+buyer_name = ''
+bids = False
+bid_number = 0
+auction_state = False
+connected_clients = 0
 
 
 # Have to use a class to perform threading
@@ -29,6 +41,7 @@ class ClientHandler(threading.Thread):
         
     def initial_message(self):
         #Send our opening message requesting what services the client performs
+        broadcast("testing".encode())
         riddle = "\nHello, I am a server that can offer information about other clients, once a voting consensus has been reached.\nTo cast your vote you must be able to answer a riddle correctly. What services does your client offer?"
         print(f"Sending: {riddle}")
         self.client_socket.send(riddle.encode())
@@ -59,6 +72,10 @@ class ClientHandler(threading.Thread):
         print(f"Received answer: {answer}")
         #David is the correct answer, if this is received we go to correct function, otherwise incorrect function
         if answer.lower() == "david":
+            create_auction(self.client_socket)
+            self.client_socket.send(f"Auction for {item_name} active. Current Price: {item_price}$".encode())
+            thread = threading.Thread(target=handle, args=(self.client_socket,))
+            thread.start()
             self.correct_answer()
         else: 
             self.incorrect_answer()
@@ -165,7 +182,7 @@ class ClientHandler(threading.Thread):
 
     def close_connection(self):
         #Closes the connections, nealry all paths lead here 
-        close_message = "Connection closed. Goodbye!"
+        close_message = "Connection closed. Enter any letter to kill the program! Goodbye!"
         print(f"Sending: {close_message}")
         self.client_socket.send(close_message.encode())
         # Remove all parameters from respective lists
@@ -180,7 +197,7 @@ class ClientHandler(threading.Thread):
         
     def reject(self):
         #Handles server rejecting the client- essentially the same as close connectionsb but with a diff message and  not removing additional items
-        close_message = "The server has rejected your connection. Goodbye!"
+        close_message = "The server has rejected your connection. Goodbye!\nEnter any letter to kill the program."
         print(f"Sending: {close_message}")
         self.client_socket.send(close_message.encode())
         with global_lock:
@@ -203,13 +220,124 @@ class ClientHandler(threading.Thread):
                 self.correct_answer()
                 return  # Exit the method if the answer is correct
                 
-        wrong_message = "Exceeded maximum attempts. Closing connection for security reasons."
+        wrong_message = "Exceeded maximum attempts. Closing connection for security reasons. Enter any letter to close the program!"
         print(f"Sending: {wrong_message}")
         self.client_socket.send(wrong_message.encode())
         with global_lock:
             self.active_connections.remove(self.address)
             self.client_service.remove(self.service)  # corrected line
         self.client_socket.close()
+
+
+# Send message to all active clients
+def broadcast(message):
+    for client_socket in clients:
+        client_socket.send(message)
+
+
+def handle(client):
+    global connected_clients
+    while True:
+        try:
+            message = client.recv(1024).decode()
+            if auction_state == True:
+                handle_bids(client, message)
+            if auction_state == False:
+                client.send("No auction currently running".encode())
+        except:
+            index = clients.index(client)
+            user_name = names[index]
+            clients.remove(client)
+            names.remove(user_name)
+            connected_clients -= 1
+            client.close()
+            broadcast(f"{user_name} left the auction house!".encode())
+            break
+
+
+def handle_bids(client, message):
+    index = clients.index(client)
+    user_name = names[index]
+    global item_price
+    global buyer_name
+    global bids
+    global bid_number
+    try:
+        int(message)
+        if buyer_name == user_name:
+            client.send(f"you cant bid twice in a row".encode())
+        else:
+            if int(message) < item_price:
+                client.send(f"Bid too low".encode())
+            elif int(message) == item_price:
+                if not buyer_name:
+                    item_price = int(message)
+                    buyer_name = user_name
+                    bids = True
+                    bid_number = 1 
+                    broadcast(f"{user_name} bid {message}$".encode())
+                else:
+                    client.send("bid too low".encode())
+            else:
+                item_price = int(message)
+                buyer_name = user_name
+                bids = True
+                bid_number = 1
+                broadcast(f"{user_name} bid {message}$".encode())
+    except:
+        client.send("invalid input".encode())
+
+
+def create_auction(client):
+    global auction_state
+    global item_name
+    global item_price
+    global buyer_name
+    item_name = "information of other connected clients "
+    while True:
+        try:
+            client.send("choose base price".encode())
+            item_price = int(client.recv(1024).decode())
+            break
+
+        except:
+            print("enter a numver")
+
+    broadcast(f"Auction for {item_name} active. Base Price: {item_price}$".encode())
+    auction_state = True
+    buyer_name = ''
+    while True:
+        if bids == True:
+            timer()
+            if auction_state == True:
+                continue
+            else:
+                break
+        else:
+            continue
+
+
+def timer():
+    global bid_number
+    global auction_state
+    if bid_number > 0:
+        bid_number = 0
+        time.sleep(5)
+        if bid_number == 0:
+            time.sleep(10)
+            if bid_number == 0:
+                broadcast("Going once...".encode())
+                time.sleep(3)
+                if bid_number == 0:
+                    broadcast("Going twice...".encode())
+                    time.sleep(3)
+                    if bid_number == 0:
+                        broadcast("Going three times...".encode())
+                        broadcast(f"Auction for {item_name} concluded. Final Price: {item_price}€. Buyer: {buyer_name}".encode())
+                        print(f"Auction for {item_name} concluded. Final Price: {item_price}€. Buyer: {buyer_name}")
+                        auction_state = False     
+
+
 
 def main():
     # Global lock to synchronize access to shared resources
@@ -236,14 +364,23 @@ def main():
     while True:
         # New individual for each client socket that can be used for threading
         client_socket, addr = lsock.accept()
+        #user_name = client_socket.recv(1024).decode()
+        #names.append(user_name)
+        #clients.append(client_socket)
+
         print("Accepted connection from:", addr)
         with global_lock:
             global_active_connections.append(addr)
+
+
         
         #Call the client handler class that will perform all the riddle logic
         client_handler = ClientHandler(client_socket, addr, global_active_connections, global_voting_list, global_client_service)
         client_handler.start()
+
+        
         
         
 if __name__ == "__main__":
     main()
+
