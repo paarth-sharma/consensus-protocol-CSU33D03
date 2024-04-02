@@ -4,75 +4,31 @@ import types
 
 sockets = []  # List to store socket objects
 
-def start_connections(host, port):
-
-    server_addr = (host, port)
-    print(f"Starting connection to {server_addr}")
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    #host= socket.gethostname()
-    #host_ip= socket.gethostbyname(host)
-    #server_addr = (host_ip, port)
-    sock.setblocking(False)
-    try:
-        # Attempt to connect to the server
-        sock.connect(server_addr)
-        print(f"Starting connection to {host_ip} at port {port}")
-    except BlockingIOError:
-        pass  # Connection is in progress, move forward
-        
-    sockets.append((sock, types.SimpleNamespace(
-        outb=b"",
-        inb=b"",
-        prompt=False 
-        )))
-
-
-def service_connection(sock, data):
-    try:
-        recv_data = sock.recv(1024)
-        if recv_data:
-            print(f"Received: {recv_data.decode()}")
-            # Prompt for input every time we receive data
-            data.prompt = True
-        else:
-            print(f"Connection closed by the server.")
-            sockets.remove((sock, data))
-            sock.close()
-            return
-    except BlockingIOError:
-            pass  # No data available to read, continue without printing an error
-    except Exception as e:
-            print(f"Error receiving data from server: {e}")
-
-
-    if data.prompt:
-        # Prompt the user for input only if necessary
-        sentence = input("Enter reply: ")
-        if sentence:
-            data.outb = sentence.encode()
-            data.prompt = False  # Stop prompting for input
-    elif data.outb:
-        # If there's data to send, send it
-        try:
-            sock.send(data.outb)
-            data.outb = b""  # Clear the output buffer after sending
-        except Exception as e:
-            print(f"Error sending data to server: {e}")
-
-
 if len(sys.argv) != 3:
     print(f"Usage: {sys.argv[0]} <host> <port> ")
     sys.exit(1)
 
 host, port = sys.argv[1], int(sys.argv[2])
-start_connections(host, port)
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server_addr= ( host,port)
+sock.connect(server_addr)
 
-try:
-    while sockets:
-        for sock, data in sockets.copy():
-            service_connection(sock, data)
-except KeyboardInterrupt:
-    print("Caught keyboard interrupt, exiting")
-finally:
-    for sock, _ in sockets:
-        sock.close()
+yes = True
+while yes==True:
+    try:
+        recv_data = sock.recv(1024)
+        print(f"Received: {recv_data.decode()}")
+        if "Connection closed.Goodbye!" in recv_data.decode():
+            sock.close()
+            yes=False
+        elif "The server has rejected your connection. Goodbye!" in recv_data.decode():
+            sock.close()
+            yes=False
+        elif "Exceeded maximum attempts. Closing connection for security reasons." in recv_data.decode():
+            sock.close()
+            yes=False
+        else:
+            sentence = input("Enter reply: ")
+            sock.send(sentence.encode())
+    except KeyboardInterrupt:
+            print("Caught keyboard interrupt, exiting")
