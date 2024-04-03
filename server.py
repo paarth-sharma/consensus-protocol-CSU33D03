@@ -26,14 +26,14 @@ class ClientHandler(threading.Thread):
     def run(self):
         try:
             # Send the inital server message
-            self.initial_message()
+            self.riddle()
         finally:
             #Closes the connections at the end if not already closed
             self.close_connection()
         
     def initial_message(self):
         #Send our opening message requesting what services the client performs
-        riddle = "\nHello, I am a server that can offer information about other clients, once a voting consensus has been reached.\nTo cast your vote you must be able to answer a riddle correctly. What services does your client offer?"
+        riddle = "\nCorrect answer!!! What services does your client offer?"
         print(f"Sending: {riddle}")
         self.client_socket.send(riddle.encode())
         #Decode and strip the white space of the reply
@@ -47,7 +47,7 @@ class ClientHandler(threading.Thread):
                 self.client_service.append(answer)
                 self.service= answer
                 # If server agrres, we sent the riddle
-            self.riddle()
+            self.correct_answer()
         else: 
             # Otherwise, we reject the client and close the connection
             self.reject()
@@ -56,21 +56,21 @@ class ClientHandler(threading.Thread):
     def riddle(self):
         # Select a random riddle for this client
         index = random.randint(0, len(self.riddles) - 1)
-        riddle = self.riddles[index]
+        riddle = (f"Hello, I am a server that can offer information about other clients, once a voting consensus has been reached.\nPlease answer this riddle to continue your connection.\n{self.riddles[index]}\n")
         correct_ans = self.answers[index]
-        print(f"Sending: {riddle}")
+        print(f"Sending: Hello, I am a server that can offer information about other clients, once a voting consensus has been reached.\nPlease answer this riddle to continue your connection.\n{riddle}")
         self.client_socket.send(riddle.encode())
         answer = self.client_socket.recv(1024).decode().strip()
         print(f"Received answer: {answer}")
         #David is the correct answer, if this is received we go to correct function, otherwise incorrect function
         if answer.lower() == correct_ans.lower():
-            self.correct_answer()
+            self.initial_message()
         else: 
             self.incorrect_answer()
    
     def correct_answer(self):
         #if client answers correctly, it can cast its vote, however we offer a choise in case the client wants to exit
-        info_message = f"Correct answer! Would you to cast your vote?"
+        info_message = f"Would you to cast your vote?"
         print(f"Sending: {info_message}")
         self.client_socket.send(info_message.encode())
         #Decode and strip the white space of the reply
@@ -113,8 +113,6 @@ class ClientHandler(threading.Thread):
         if len(self.voted_clients) == len(self.active_connections):
             #This will count type of votes for us and decide which has highest amount
             vote_counts = Counter(self.voting_list)
-            #Find the total sum of votes
-            total_votes= sum(vote_counts.values())
             # This finds the maximum type of vote case
             max_count = max(vote_counts.values())
             # Selecting options that received the maximum count of votes
@@ -235,7 +233,7 @@ def main():
         sys.exit(1)
     # Permanet socket that the server uses to listen on
     host, port = sys.argv[1], int(sys.argv[2])
-    lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM) #IPV4, TCP 
     lsock.bind((host, port))
     lsock.listen()
     
