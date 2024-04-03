@@ -111,6 +111,8 @@ class ClientHandler(threading.Thread):
         
     
     def find_consensus(self):
+        print(len(self.voted_clients))
+        print(len(self.active_connections))
         if len(self.voted_clients) == len(self.active_connections):
             #This will count type of votes for us and decide which has highest amount
             vote_counts = Counter(self.voting_list)
