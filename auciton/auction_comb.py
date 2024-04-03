@@ -41,6 +41,7 @@ class ClientHandler(threading.Thread):
         
     def initial_message(self):
         #Send our opening message requesting what services the client performs
+        broadcast("testing".encode())
         riddle = "\nHello, I am a server that can offer information about other clients, once a voting consensus has been reached.\nTo cast your vote you must be able to answer a riddle correctly. What services does your client offer?"
         print(f"Sending: {riddle}")
         self.client_socket.send(riddle.encode())
@@ -74,7 +75,11 @@ class ClientHandler(threading.Thread):
             create_auction(self.client_socket)
             self.client_socket.send(f"Auction for {item_name} active. Current Price: {item_price}$".encode())
             thread = threading.Thread(target=handle, args=(self.client_socket,))
+            self.client_socket.send("below thread".encode())
+
             thread.start()
+            self.client_socket.send("below thread start".encode())
+
             self.correct_answer()
         else: 
             self.incorrect_answer()
@@ -297,12 +302,12 @@ def create_auction(client):
         try:
             client.send("choose base price".encode())
             item_price = int(client.recv(1024).decode())
+            break
 
         except:
             print("enter a numver")
-        else:
-            break
-    broadcast(f"Auction for {item_name} active. Base Price: {item_price}$".encode())
+    client.send("hello".encode())
+    #broadcast(f"Auction for {item_name} active. Base Price: {item_price}$".encode())
     auction_state = True
     buyer_name = ''
     while True:
@@ -363,9 +368,9 @@ def main():
     while True:
         # New individual for each client socket that can be used for threading
         client_socket, addr = lsock.accept()
-        user_name = client_socket.recv(1024).decode()
-        names.append(user_name)
-        clients.append(client_socket)
+        #user_name = client_socket.recv(1024).decode()
+        #names.append(user_name)
+        #clients.append(client_socket)
 
         print("Accepted connection from:", addr)
         with global_lock:
@@ -382,3 +387,4 @@ def main():
         
 if __name__ == "__main__":
     main()
+
