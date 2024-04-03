@@ -204,7 +204,7 @@ class ClientHandler(threading.Thread):
             request = self.client_socket.recv(1024).decode().strip()
             print(f"Received sentence: {request}")
             if request.lower() == "david":
-                self.correct_answer()
+                self.inital_message()
                 return  # Exit the method if the answer is correct
                 
         wrong_message = "Exceeded maximum attempts. Closing connection for security reasons."
@@ -212,7 +212,6 @@ class ClientHandler(threading.Thread):
         self.client_socket.send(wrong_message.encode())
         with global_lock:
             self.active_connections.remove(self.address)
-            self.client_service.remove(self.service)  # corrected line
         self.client_socket.close()
 
 def main():
