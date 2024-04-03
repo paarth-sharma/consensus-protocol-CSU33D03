@@ -22,6 +22,7 @@ class ClientHandler(threading.Thread):
         self.answers= answers
         self.service= None
         self.vote= None
+        self.index= None
 
     def run(self):
         try:
@@ -55,9 +56,9 @@ class ClientHandler(threading.Thread):
     
     def riddle(self):
         # Select a random riddle for this client
-        index = random.randint(0, len(self.riddles) - 1)
-        riddle = (f"Hello, I am a server that can offer information about other clients, once a voting consensus has been reached.\nPlease answer this riddle to continue your connection.\n{self.riddles[index]}\n")
-        correct_ans = self.answers[index]
+        self.index = random.randint(0, len(self.riddles) - 1)
+        riddle = (f"Hello, I am a server that can offer information about other clients, once a voting consensus has been reached.\nPlease answer this riddle to continue your connection.\n{self.riddles[self.index]}\n")
+        correct_ans = self.answers[self.index]
         print(f"Sending: Hello, I am a server that can offer information about other clients, once a voting consensus has been reached.\nPlease answer this riddle to continue your connection.\n{riddle}")
         self.client_socket.send(riddle.encode())
         answer = self.client_socket.recv(1024).decode().strip()
@@ -70,7 +71,7 @@ class ClientHandler(threading.Thread):
    
     def correct_answer(self):
         #if client answers correctly, it can cast its vote, however we offer a choise in case the client wants to exit
-        info_message = f"Would you to cast your vote?"
+        info_message = f"Would you to cast your vote? Enter yes to proceed. Otherwise the connection will be closed!"
         print(f"Sending: {info_message}")
         self.client_socket.send(info_message.encode())
         #Decode and strip the white space of the reply
@@ -88,7 +89,7 @@ class ClientHandler(threading.Thread):
         print(f"Sending: {vote_message}")
         self.client_socket.send(vote_message.encode())
         vote = self.client_socket.recv(1024).decode().strip()
-        print(f"Received vote: {vote}")
+        print(f"Received vote: {vote}")     
         with global_lock:
             #Add the vote to the list that can be accessed by all threads
              self.voting_list.append(vote)
@@ -167,18 +168,20 @@ class ClientHandler(threading.Thread):
         self.close_connection()
 
     def close_connection(self):
-        #Closes the connections, nealry all paths lead here 
-        close_message = "Connection closed. Goodbye!"
-        print(f"Sending: {close_message}")
-        self.client_socket.send(close_message.encode())
-        # Remove all parameters from respective lists
         with global_lock:
-            self.active_connections.remove(self.address)
-            self.voted_clients.remove(self.address)
-            if self.service in self.client_service:
-                self.client_service.remove(self.service)
-            if self.vote in self.voting_list:
-                self.voting_list.remove(self.vote)
+            #Closes the connections, nealry all paths lead here 
+            close_message = "Connection closed. Goodbye!"
+            print(f"Sending: {close_message}")
+            self.client_socket.send(close_message.encode())
+            # Remove all parameters from respective lists
+            with global_lock:
+                self.active_connections.remove(self.address)
+                if self.voted_clients in self.client_service:
+                    self.voted_clients.remove(self.address)
+                if self.service in self.client_service:
+                    self.client_service.remove(self.service)
+                if self.vote in self.voting_list:
+                    self.voting_list.remove(self.vote)
         self.client_socket.close()
         return
         
@@ -203,8 +206,8 @@ class ClientHandler(threading.Thread):
             #If the answer is entered corectly on the 2nd/3rd try
             request = self.client_socket.recv(1024).decode().strip()
             print(f"Received sentence: {request}")
-            if request.lower() == "david":
-                self.inital_message()
+            if request.lower() == self.answers[self.index].lower():
+                self.initial_message()
                 return  # Exit the method if the answer is correct
                 
         wrong_message = "Exceeded maximum attempts. Closing connection for security reasons."
